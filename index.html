@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1E1B18">
+<title>VINÉRE Ledger — Orders</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css?v=9">
+<base target="_blank">
+<base target="_blank">
+<base target="_blank">
+<base target="_blank">
+<base target="_blank">
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="login">
+  <div class="login-card">
+    <img class="login-logo" src="images/vinere-logo-white.png" alt="VINÉRE Jewellery">
+    <input id="passInput" type="password" placeholder="Access code" autofocus autocomplete="off">
+    <button id="loginBtn">Unlock</button>
+    <div id="loginError"></div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app">
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="mark">VINÉRE<span class="dot">·</span>Ledger</div>
+      <div class="view-toggle">
+        <button class="btn secondary small active" id="ordersViewBtn">Orders</button>
+        <button class="btn secondary small" id="tradingViewBtn">Trading</button>
+        <button class="btn secondary small" id="expensesViewBtn">Expenses</button>
+      </div>
+    </div>
+    <div class="header-stats" id="headerStats">
+      <div class="hstat" id="hstat_1_wrap"><span class="hstat-label" id="hstat_1_label">Profit / Loss</span><span class="hstat-value" id="hstat_1">—</span></div>
+      <div class="hstat" id="hstat_2_wrap"><span class="hstat-label" id="hstat_2_label">Remaining Stock</span><span class="hstat-value" id="hstat_2">—</span></div>
+      <div class="hstat" id="hstat_3_wrap"><span class="hstat-label" id="hstat_3_label">Stock Cost</span><span class="hstat-value" id="hstat_3">—</span></div>
+    </div>
+    <div class="topbar-right">
+      <div class="search-wrap">
+        <input id="search" placeholder="Search…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" onfocus="this.setAttribute('readonly','readonly');setTimeout(()=>this.removeAttribute('readonly'),1)">
+        <button id="searchClear" class="search-clear" title="Clear search">&times;</button>
+        <span id="resultCount" class="result-count"></span>
+      </div>
+      <button class="btn secondary small" id="refreshBtn" title="Refresh">↻</button>
+      <button class="btn secondary small" id="insightsBtn" title="Vendor profitability & best sellers">Insights</button>
+      <button class="btn secondary small" id="buyersBtn" title="Buyer directory">Buyers</button>
+      <button class="btn secondary small" id="receivePaymentBtn">Payment</button>
+      <button class="btn small" id="newOrderBtn">+ Order</button>
+      <button class="btn small" id="newTradeBtn" style="display:none;">+ Trade</button>
+      <button class="btn small" id="newExpenseBtn" style="display:none;">+ Expense</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="ordersView">
+      <div class="filter-bar-head">
+        <button class="btn secondary small" id="filtersToggleBtn" onclick="toggleFiltersBar()">Filters</button>
+        <span class="rate-note" id="rateNoteCollapsed"></span>
+      </div>
+      <div class="filter-bar compact" id="filterBarContent" style="display:none;">
+        <div class="field" style="margin:0;flex:0 0 auto;">
+          <label style="font-size:11px;margin-bottom:2px;">Gold Rate (₹/gm)</label>
+          <input type="number" id="goldRateInput" value="16000" step="100" style="width:100px;padding:6px 10px;font-size:14px;">
+        </div>
+        <span class="rate-note" id="rateNote"></span>
+
+        <div class="filter-right">
+          <select id="filterPaymentStatus" class="filter-pill" style="width:auto;min-width:130px;">
+            <option value="">All Status</option>
+            <option value="Not Sold">Not Sold</option>
+            <option value="Unpaid">Unpaid</option>
+            <option value="Partial">Partial</option>
+            <option value="Paid">Paid</option>
+          </select>
+          <input type="text" id="filterSoldTo" class="filter-pill" placeholder="Sold to…" autocomplete="off">
+          <input type="text" id="filterMemoNo" class="filter-pill" placeholder="Memo no…" autocomplete="off">
+          <select id="filterExpenseCategory" class="filter-pill" style="width:auto;min-width:140px;display:none;">
+            <option value="">All Categories</option>
+            <option value="Travel">Travel</option>
+            <option value="Food">Food</option>
+            <option value="Accommodation">Accommodation</option>
+            <option value="Marketing">Marketing</option>
+            <option value="Office">Office</option>
+            <option value="Shipping">Shipping</option>
+            <option value="Misc">Misc</option>
+          </select>
+          <input type="text" id="filterExpenseSeller" class="filter-pill" placeholder="Seller…" style="display:none;" autocomplete="off">
+          <button class="btn secondary small" id="clearFiltersBtn">Clear</button>
+        </div>
+      </div>
+
+      <div class="kpi-grid" id="kpiGrid"></div>
+      <div class="kpi-grid" id="tradeKpiGrid" style="display:none;"></div>
+      <div class="kpi-grid" id="expenseKpiGrid" style="display:none;"></div>
+
+      <div class="table-wrap">
+        <table id="ordersTable">
+          <colgroup>
+            <col style="width:4%"><col style="width:7%"><col style="width:9%"><col style="width:6%"><col style="width:7%"><col style="width:7%">
+            <col style="width:5%"><col style="width:5%"><col style="width:5%">
+            <col style="width:9%"><col style="width:5%"><col style="width:6%"><col style="width:9%">
+            <col style="width:7%"><col style="width:8%">
+          </colgroup>
+          <thead><tr>
+            <th class="num sticky-col-left">Sr.</th><th>Customer</th><th>Style No.</th><th>Jewelry Type</th><th>Diamond Shape</th><th>Date</th>
+            <th class="num">Gross Wt</th><th class="num">Net Wt</th><th class="num sortable" onclick="window.sortByColumn('inCt')" style="cursor:pointer;">Carat <span class="sort-icon">↕</span></th>
+            <th class="num">Sub Total</th><th class="num">$</th><th>Memo No.</th><th>Sold To</th>
+            <th class="num">Sale Price</th><th class="sticky-col-right">Status</th>
+          </tr></thead>
+          <tbody id="tbody">
+            <tr class="skeleton-row"><td colspan="14"><div class="skeleton-cell" style="width:100%"></div></td></tr>
+            <tr class="skeleton-row"><td colspan="14"><div class="skeleton-cell" style="width:100%"></div></td></tr>
+            <tr class="skeleton-row"><td colspan="14"><div class="skeleton-cell" style="width:100%"></div></td></tr>
+          </tbody>
+        </table>
+
+        <table id="tradingTable" style="display:none;">
+          <colgroup>
+            <col style="width:4%"><col style="width:8%"><col style="width:16%">
+            <col style="width:14%"><col style="width:8%"><col style="width:8%">
+            <col style="width:8%"><col style="width:14%"><col style="width:7%"><col style="width:8%">
+          </colgroup>
+          <thead><tr>
+            <th class="num sticky-col-left">Sr.</th><th>Date</th><th>Item</th><th>Vendor</th>
+            <th class="num">Purchase $</th><th>Memo No.</th><th class="num">Sale $</th><th>Sold To</th>
+            <th>Status</th><th class="num sticky-col-right">P/L</th>
+          </tr></thead>
+          <tbody id="tradeTbody">
+            <tr class="skeleton-row"><td colspan="10"><div class="skeleton-cell" style="width:100%"></div></td></tr>
+            <tr class="skeleton-row"><td colspan="10"><div class="skeleton-cell" style="width:100%"></div></td></tr>
+            <tr class="skeleton-row"><td colspan="10"><div class="skeleton-cell" style="width:100%"></div></td></tr>
+          </tbody>
+        </table>
+
+       <table id="expensesTable" style="display:none;">
+  <colgroup>
+    <col style="width:8%"><col style="width:14%"><col style="width:15%">
+    <col style="width:42%"><col style="width:21%">
+  </colgroup>
+  <thead><tr>
+    <th class="num">Sr.</th><th>Date</th><th>Category</th><th>Description</th>
+    <th class="num">Amount</th>
+  </tr></thead>
+  <tbody id="expenseTbody">
+    <tr class="skeleton-row"><td colspan="5"><div class="skeleton-cell" style="width:100%"></div></td></tr>
+    <tr class="skeleton-row"><td colspan="5"><div class="skeleton-cell" style="width:100%"></div></td></tr>
+  </tbody>
+</table>
+      </div>
+
+      <div class="card-list" id="cardList"></div>
+      <div class="card-list" id="tradeCardList"></div>
+      <div class="card-list" id="expenseCardList"></div>
+      <div class="pagination-bar" id="paginationBar"></div>
+      <div class="pagination-bar" id="tradePaginationBar" style="display:none;"></div>
+      <div class="pagination-bar" id="expensePaginationBar" style="display:none;"></div>
+      <div class="swipe-hint">Swipe left/right to change pages</div>
+    </div>
+  </main>
+</div>
+
+<!-- ============ ORDERS PANEL ============ -->
+<div id="overlay"></div>
+<div id="panel">
+  <div class="panel-head">
+    <h2 id="panelTitle">New Order</h2>
+    <span id="panelStatusBadge" class="status-badge status-not-sold" style="display:none;">Not Sold</span>
+    <button id="closePanel">&times;</button>
+  </div>
+
+  <!-- Memo Banner (injected by JS when memo exists) -->
+  <div id="panelMemoBanner" class="panel-memo-banner" style="display:none;"></div>
+
+  <!-- Tabs -->
+  <div class="panel-tabs">
+    <button class="panel-tab active" data-tab="tab-costs">Cost</button>
+    <button class="panel-tab" data-tab="tab-sale">Payment</button>
+  </div>
+
+  <div class="panel-body">
+
+    <!-- ===== TAB 1: COST ===== -->
+    <div id="tab-costs" class="tab-content active">
+      <div class="section-card">
+        <div class="section-card-title">Item Details</div>
+        <div class="fields-grid compact">
+          <div class="field full-width">
+            <label>Customer *</label>
+            <input id="f_customer" placeholder="e.g. HET">
+            <div class="field-error" id="err_f_customer"></div>
+          </div>
+          <div class="field full-width">
+            <label>Style No. *</label>
+            <input id="f_style" placeholder="e.g. SLER-0079 I">
+            <div class="field-error" id="err_f_style"></div>
+          </div>
+          <div class="field">
+            <label>Jewelry Type</label>
+            <select id="f_jewelryType">
+              <option value="">Select type…</option>
+              <option value="Bracelet">Bracelet</option>
+              <option value="Necklace">Necklace</option>
+              <option value="Ring">Ring</option>
+              <option value="Earring">Earring</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Diamond Shape</label>
+            <div class="field-row">
+              <select id="f_diamondShapeBase">
+                <option value="">Select shape…</option>
+              </select>
+              <select id="f_diamondShapeVariant" disabled>
+                <option value="">Select shape first…</option>
+              </select>
+            </div>
+            <!-- Hidden: keeps the real stored value; panel.js/table.js read/write this id unchanged -->
+            <select id="f_diamondShape" style="display:none">
+              <option value="">Select shape…</option>
+              <option value="Round">Round</option>           
+              <option value="Round Bezel">Round Bezel</option>
+              <option value="Oval East/West">Oval East/West</option>
+              <option value="Oval North/South">Oval North/South</option>
+              <option value="Oval Bezel East/West">Oval Bezel East/West</option>
+              <option value="Oval Bezel North/South">Oval Bezel North/South</option>
+              <option value="Marquise East/West">Marquise East/West</option>
+              <option value="Marquise North/South">Marquise North/South</option>
+              <option value="Marquise Bezel East/West">Marquise Bezel East/West</option>
+              <option value="Marquise Bezel North/South">Marquise Bezel North/South</option>
+              <option value="Emerald East/West">Emerald East/West</option>
+              <option value="Emerald North/South">Emerald North/South</option>
+              <option value="Emerald Bezel East/West">Emerald Bezel East/West</option>
+              <option value="Emerald Bezel North/South">Emerald Bezel North/South</option>
+              <option value="Pear East/West">Pear East/West</option>
+              <option value="Pear North/South">Pear North/South</option>
+              <option value="Pear Bezel East/West">Pear Bezel East/West</option>
+              <option value="Pear Bezel North/South">Pear Bezel North/South</option>
+              <option value="Radiant East/West">Radiant East/West</option>
+              <option value="Radiant North/South">Radiant North/South</option>
+              <option value="Radiant Bezel East/West">Radiant Bezel East/West</option>
+              <option value="Radiant Bezel North/South">Radiant Bezel North/South</option>
+              <option value="Cushion">Cushion</option>
+              <option value="Cushion Bezel">Cushion Bezel</option>
+              <option value="Cushion Half Bezel">Cushion Half Bezel</option>
+              <option value="Fancy Mix">Fancy Mix</option>
+              <option value="Fancy Mix Bezel">Fancy Mix Bezel</option>
+            </select>
+          </div>
+          <div class="field"><label>Date</label><input id="f_date" type="date"></div>
+          <div class="field"><label>Gross Wt (g)</label><input id="f_grossWt" type="number" step="0.001" placeholder="0.000"></div>
+          <div class="field"><label>Net Wt (g) *</label><input id="f_netWt" type="number" step="0.001" placeholder="0.000"><div class="field-error" id="err_f_netWt"></div></div>
+          <div class="field"><label>Multiplier</label><input id="f_multiplier" type="number" step="0.001" value="0.595"></div>
+          <div class="field"><label>Dia Qty</label><input id="f_diaQty" type="number" step="1" placeholder="0"></div>
+          <div class="field"><label>IN CT</label><input id="f_inCt" type="number" step="0.01" placeholder="0.00"></div>
+          <div class="field"><label>Colour Stone</label><input id="f_colourStone" type="number" step="1" placeholder="0"></div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-card-title">Cost Breakdown</div>
+        <div class="fields-grid compact">
+          <div class="field"><label>Diamond Amount (₹)</label><input id="f_diamAmount" type="number" step="1" placeholder="0"></div>
+          <div class="field"><label>L Charges (₹/g)</label><input id="f_lCharges" type="number" step="1" placeholder="900"></div>
+          <div class="field full-width">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;text-transform:none;letter-spacing:0;font-weight:400;color:var(--md-on-surface-variant);">
+              <input type="checkbox" id="f_flatLabor" style="width:16px;height:16px;"> Flat labor — fixed amount (don't multiply by weight)
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-preview-bottom">
+        <div class="computed-preview compact" style="margin:0;">
+          <div class="computed-row"><span class="label">Pg Wt</span><span class="value" id="prev_pgWt">—</span></div>
+          <div class="computed-row"><span class="label">Gold Amount</span><span class="value" id="prev_goldAmt">—</span></div>
+          <div class="computed-row"><span class="label">Labor Amount</span><span class="value" id="prev_laborAmt">—</span></div>
+          <div class="computed-row"><span class="label">Sub Total</span><span class="value" id="prev_subTotal">—</span></div>
+          <div class="computed-row"><span class="label">USD ($)</span><span class="value" id="prev_usd">—</span></div>
+        </div>
+        <p class="computed-note" style="margin-bottom:0;font-size:11px;">Pg Wt = Net Wt × Multiplier | Gold = Pg Wt × Rate | Labor = Net Wt × L Charges | $ = Sub Total ÷ 94</p>
+      </div>
+    </div>
+
+    <!-- ===== TAB 3: SALE & PAYMENT ===== -->
+    <div id="tab-sale" class="tab-content">
+      <div class="section-card">
+        <div class="section-card-title">Sale Details</div>
+        <div class="fields-grid">
+          <div class="field"><label>Memo No.</label><input id="f_memoNo" placeholder="e.g. MEMO-014"></div>
+          <div class="field"><label>Sold To (Buyer)</label><input id="f_soldTo" list="buyersDatalist" autocomplete="off" placeholder="e.g. Priya Shah"><input type="hidden" id="f_soldToBuyerId"></div>
+          <div class="field"><label>Sale Price ($)</label><input id="f_salePrice" type="number" step="1" placeholder="0"><div class="field-error" id="err_f_salePrice"></div></div>
+          <div class="field"><label>Date Sold</label><input id="f_dateSold" type="date"></div>
+        </div>
+        <div id="memoSummary" style="display:none;margin-top:var(--space-3);"></div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-card-title">Installments</div>
+        <div id="installmentChips" class="installment-chips"></div>
+        <div class="fields-grid">
+          <div class="field"><input id="f_instAmount" type="number" step="1" min="0" placeholder="Amount $"></div>
+          <div class="field"><input id="f_instDate" type="date"></div>
+        </div>
+        <div class="installment-add-row" style="display:flex;align-items:center;gap:var(--space-3);margin-top:var(--space-2);">
+          <button class="btn secondary small" id="addInstallmentBtn" type="button" style="flex:1;">+ Add installment</button>
+          <span id="f_remainingBalance" class="remaining-balance-tag"></span>
+        </div>
+        <div class="field-error" id="err_f_installment"></div>
+      </div>
+
+      <div class="section-card sticky-preview-card">
+        <div class="section-card-title">Payment Summary</div>
+        <div class="computed-preview compact" style="margin:0;">
+          <div class="computed-row"><span class="label">Amount Paid</span><span class="value" id="prev_amountPaid">$0</span></div>
+          <div class="computed-row"><span class="label">Balance Due</span><span class="value" id="prev_balanceDue">—</span></div>
+          <div class="computed-row"><span class="label">Payment Status</span><span class="value" id="prev_paymentStatus">Not Sold</span></div>
+        </div>
+      </div>
+
+      <div id="saveMsg"></div>
+    </div>
+
+  </div>
+
+  <div class="panel-foot">
+    <button id="deleteBtn" style="display:none;"><span id="deleteText">Delete</span></button>
+    <button class="btn" id="saveBtn" style="flex:1;">Save</button>
+  </div>
+</div>
+
+<!-- ============ TRADING PANEL ============ -->
+<div id="tradeOverlay"></div>
+<div id="tradePanel">
+  <div class="panel-head">
+    <h2 id="tradePanelTitle">New Trade</h2>
+    <span id="tradePanelStatusBadge" class="status-badge status-not-sold" style="display:none;">Not Sold</span>
+    <button id="closeTradePanel">&times;</button>
+  </div>
+
+  <!-- Memo Banner (injected by JS when memo exists) -->
+  <div id="tradePanelMemoBanner" class="panel-memo-banner" style="display:none;"></div>
+
+  <div class="panel-tabs">
+    <button class="panel-tab active" data-tab="tab-trade-costs">Cost</button>
+    <button class="panel-tab" data-tab="tab-trade-payment">Payment</button>
+  </div>
+
+  <div class="panel-body">
+
+    <!-- ===== TAB 1: COST ===== -->
+    <div id="tab-trade-costs" class="tab-content active">
+      <div class="section-card">
+        <div class="section-card-title">Item Details</div>
+        <div class="fields-grid">
+          <div class="field full-width"><label>Item *</label><input id="t_item" placeholder="e.g. Diamond Bracelet"><div class="field-error" id="err_t_item"></div></div>
+          <div class="field full-width"><label>Vendor *</label><input id="t_vendor" placeholder="e.g. Rakesh Jewellers"><div class="field-error" id="err_t_vendor"></div></div>
+          <div class="field"><label>Date</label><input id="t_date" type="date"></div>
+          <div class="field"><label>Purchase Price ($) *</label><input id="t_purchasePrice" type="number" step="1" placeholder="0"><div class="field-error" id="err_t_purchasePrice"></div></div>
+          <div class="field full-width"><label>Notes</label><input id="t_notes" placeholder="Any notes…"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TAB 2: PAYMENT ===== -->
+    <div id="tab-trade-payment" class="tab-content">
+      <div class="section-card">
+        <div class="section-card-title">Sale Details</div>
+        <div class="fields-grid">
+          <div class="field"><label>Memo No.</label><input id="t_memoNo" placeholder="e.g. MEMO-014"></div>
+          <div class="field"><label>Sold To (Buyer)</label><input id="t_soldTo" list="buyersDatalist" autocomplete="off" placeholder="e.g. Priya Shah"><input type="hidden" id="t_soldToBuyerId"></div>
+          <div class="field"><label>Sale Price ($)</label><input id="t_salePrice" type="number" step="1" placeholder="0"><div class="field-error" id="err_t_salePrice"></div></div>
+          <div class="field"><label>Date Sold</label><input id="t_dateSold" type="date"></div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-card-title">Installments</div>
+        <div id="tradeInstallmentsList" class="installment-chips"></div>
+        <div class="fields-grid">
+          <div class="field"><input id="t_instAmount" type="number" step="1" min="0" placeholder="Amount $"></div>
+          <div class="field"><input id="t_instDate" type="date"></div>
+        </div>
+        <div class="installment-add-row" style="display:flex;align-items:center;gap:var(--space-3);margin-top:var(--space-2);">
+          <button class="btn secondary small" id="addTradeInstallmentBtn" type="button" style="flex:1;">+ Add installment</button>
+          <span id="t_remainingBalance" class="remaining-balance-tag"></span>
+        </div>
+        <div class="field-error" id="err_t_installment"></div>
+      </div>
+
+      <div class="section-card sticky-preview-card">
+        <div class="section-card-title">Payment Summary</div>
+        <div class="computed-preview compact" style="margin:0;">
+          <div class="computed-row"><span class="label">Profit / Loss</span><span class="value" id="t_prev_profit" style="color:var(--text-dim)">—</span></div>
+          <div class="computed-row"><span class="label">Amount Paid</span><span class="value" id="t_prev_amountPaid">—</span></div>
+          <div class="computed-row"><span class="label">Balance Due</span><span class="value" id="t_prev_balanceDue">—</span></div>
+          <div class="computed-row"><span class="label">Payment Status</span><span class="value" id="t_prev_paymentStatus">—</span></div>
+        </div>
+      </div>
+
+      <div id="tradeSaveMsg"></div>
+    </div>
+
+  </div>
+  <div class="panel-foot">
+    <button id="deleteTradeBtn" style="display:none;"><span id="deleteTradeText">Delete</span></button>
+    <button class="btn" id="saveTradeBtn" style="flex:1;">Save</button>
+  </div>
+</div>
+
+<!-- ============ EXPENSES PANEL ============ -->
+<div id="expenseOverlay"></div>
+<div id="expensePanel">
+  <div class="panel-head">
+    <h2 id="expensePanelTitle">New Expense</h2>
+    <button id="closeExpensePanel">&times;</button>
+  </div>
+  <div class="panel-body">
+    <div class="section-card">
+      <div class="section-card-title">Expense Details</div>
+      <div class="fields-grid">
+        <div class="field"><label>Date *</label><input id="e_date" type="date"><div class="field-error" id="err_e_date"></div></div>
+        <div class="field"><label>Category *</label>
+          <select id="e_category">
+            <option value="Travel">Travel</option>
+            <option value="Food">Food</option>
+            <option value="Accommodation">Accommodation</option>
+            <option value="Marketing">Marketing</option>
+            <option value="Office">Office</option>
+            <option value="Shipping">Shipping</option>
+            <option value="Misc">Misc</option>
+          </select>
+          <div class="field-error" id="err_e_category"></div>
+        </div>
+        <div class="field full-width"><label>Description</label><input id="e_description" placeholder="e.g. Flight to Mumbai"></div>
+        <div class="field"><label>Amount ($) *</label><input id="e_amount" type="number" step="0.01" placeholder="0.00"><div class="field-error" id="err_e_amount"></div></div>
+        <div class="field"><label>Seller</label><input id="e_seller" placeholder="e.g. Aakash"></div>
+        <div class="field full-width"><label>Notes</label><input id="e_notes" placeholder="Any notes…"></div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-card-title">Reimbursement</div>
+      <div class="fields-grid">
+        <div class="field full-width">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;text-transform:none;letter-spacing:0;font-weight:400;color:var(--md-on-surface-variant);">
+            <input type="checkbox" id="e_reimbursed" style="width:16px;height:16px;"> Reimbursed
+          </label>
+        </div>
+        <div class="field full-width" id="e_reimbursementDateWrap" style="display:none;">
+          <label>Reimbursement Date</label>
+          <input id="e_reimbursementDate" type="date">
+        </div>
+      </div>
+    </div>
+
+    <div id="expenseSaveMsg"></div>
+  </div>
+  <div class="panel-foot">
+    <button id="deleteExpenseBtn" style="display:none;"><span>Delete</span></button>
+    <button class="btn" id="saveExpenseBtn" style="flex:1;">Save</button>
+  </div>
+</div>
+
+<!-- ============ RECEIVE PAYMENT ============ -->
+<div id="paymentSearchOverlay"></div>
+<div id="paymentSearchModal">
+  <div class="panel-head"><h2>Receive Payment</h2><button id="closePaymentSearch">&times;</button></div>
+  <div class="pay-search-body">
+    <input id="paySearchInput" placeholder="Search memo no., buyer, style, or customer…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" onfocus="this.setAttribute('readonly','readonly');setTimeout(()=>this.removeAttribute('readonly'),1)">
+    <div id="payResults" class="pay-results"></div>
+  </div>
+</div>
+
+<!-- ============ CUSTOMER PROFILE ============ -->
+<div id="customerProfileOverlay" class="overlay-fade"></div>
+<div id="customerProfileModal" class="side-modal">
+  <div class="panel-head"><h2 id="customerProfileName">Customer</h2><button id="closeCustomerProfile">&times;</button></div>
+  <div class="side-modal-body">
+    <div class="kpi-grid" id="customerProfileKPIs"></div>
+    <div id="customerProfileItems"></div>
+  </div>
+</div>
+
+<!-- ============ INSIGHTS ============ -->
+<div id="insightsOverlay" class="overlay-fade"></div>
+<div id="insightsModal" class="side-modal side-modal-wide">
+  <div class="panel-head"><h2>Insights</h2><button id="closeInsights">&times;</button></div>
+  <div class="insights-tabs">
+    <button class="insights-tab-btn active" data-target="insightsVendorsTab">Vendor Profitability</button>
+    <button class="insights-tab-btn" data-target="insightsBestSellersTab">Best Sellers</button>
+  </div>
+  <div class="side-modal-body">
+    <div id="insightsVendorsTab" class="insights-tab-content active"></div>
+    <div id="insightsBestSellersTab" class="insights-tab-content"></div>
+  </div>
+</div>
+
+<!-- Suggestions for the Sold To fields; populated at runtime from BUYERS -->
+<datalist id="buyersDatalist"></datalist>
+
+<!-- ============ BUYERS ============ -->
+<div id="buyersOverlay" class="overlay-fade"></div>
+<div id="buyersModal" class="side-modal side-modal-wide">
+  <div class="panel-head"><h2>Buyers</h2><button id="closeBuyers">&times;</button></div>
+  <div class="side-modal-body">
+    <div style="display:flex;gap:var(--space-3);margin-bottom:var(--space-4);">
+      <input type="text" id="buyerSearchInput" class="filter-pill" placeholder="Search buyers…" style="flex:1;" autocomplete="off">
+      <button class="btn small" id="newBuyerBtn">+ Buyer</button>
+    </div>
+    <div id="buyerListContainer"></div>
+  </div>
+</div>
+
+<!-- ============ BUYER EDIT PANEL ============ -->
+<div id="buyerFormOverlay" class="overlay-fade"></div>
+<div id="buyerFormModal" class="side-modal">
+  <div class="panel-head"><h2 id="buyerFormTitle">New Buyer</h2><button id="closeBuyerForm">&times;</button></div>
+  <div class="side-modal-body">
+    <div class="field">
+      <label>Name</label>
+      <input id="b_name" placeholder="e.g. Priya Shah">
+      <div class="field-error" id="err_b_name"></div>
+    </div>
+    <div class="field">
+      <label>Phone</label>
+      <input id="b_phone" placeholder="e.g. +91 98765 43210">
+    </div>
+    <div class="field">
+      <label>Email</label>
+      <input id="b_email" placeholder="optional">
+    </div>
+    <div class="field">
+      <label>Address</label>
+      <input id="b_address" placeholder="optional">
+    </div>
+    <div class="field">
+      <label>Notes</label>
+      <textarea id="b_notes" rows="3" placeholder="ring size, preferences, etc."></textarea>
+    </div>
+    <div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);">
+      <button class="btn" id="deleteBuyerBtn" style="display:none;background:var(--error);color:#fff;"><span>Delete</span></button>
+      <button class="btn" id="saveBuyerBtn" style="flex:1;">Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="screenFx"></div>
+<div id="toast"></div>
+<div id="undoToast">
+  <span class="undo-msg">Order deleted — <span class="undo-count" id="undoCount">60</span>s left</span>
+  <button id="undoBtn">Undo</button>
+</div>
+<div id="toastContainer" class="toast-container"></div>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+<!-- App scripts — load order matters -->
+<script src="js/utils.js?v=4"></script>
+<script src="js/diamond-shape.js?v=1"></script>
+<script src="js/api.js?v=4"></script>
+<script src="js/firebase.js?v=4"></script>
+<script src="js/app.js?v=6"></script>
+<script src="js/dashboard.js?v=6"></script>
+<script src="js/filters.js?v=4"></script>
+<script src="js/panel.js?v=5"></script>
+<script src="js/table.js?v=5"></script>
+<script src="js/payments.js?v=5"></script>
+<script src="js/trading.js?v=5"></script>
+<script src="js/expenses.js?v=3"></script>
+<script src="js/insights.js?v=4"></script>
+<script src="js/buyers.js?v=6"></script>
+<button id="mobileFab" class="mobile-fab" style="display:none;">+</button>
+</body>
+</html>
