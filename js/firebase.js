@@ -3,13 +3,13 @@
    ============================================ */
 
 var firebaseConfig = {
-  apiKey: "AIzaSyC3GlUHfz6Zfd1o5eymGcY_jkyz4MuVfls",
-  authDomain: "vinereledger-b29be.firebaseapp.com",
-  databaseURL: "https://vinereledger-b29be-default-rtdb.firebaseio.com",
-  projectId: "vinereledger-b29be",
-  storageBucket: "vinereledger-b29be.firebasestorage.app",
-  messagingSenderId: "701394930039",
-  appId: "1:701394930039:web:456e7ae9c61fc92402b972",
+  apiKey: "AIzaSyCBmJJREDFQl75kjFOn2JOVHv60eHCbAFA",
+  authDomain: "p-vinere.firebaseapp.com",
+  databaseURL: "https://p-vinere-default-rtdb.firebaseio.com",
+  projectId: "p-vinere",
+  storageBucket: "p-vinere.firebasestorage.app",
+  messagingSenderId: "143053734081",
+  appId: "1:143053734081:web:da34ae3133cd7cea3f9440",
   measurementId: "G-HQN3J4LGXE"
 };
 
