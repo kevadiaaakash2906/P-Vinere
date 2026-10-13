@@ -2,20 +2,27 @@
    VINÉRE — App Core
    ============================================ */
 
-/* ============ AUTH / ROLE ============ */
-var PASSWORDS = {
-  staff:   '25f885fa451c3c6b024fe23dbf834ceb2be6361316010ef348e7777faa78634c',
-  seller:  'c60a26e1e8094121dae3acccdfdb1fffeb616bcb2e3ae68f6b18c336e6e031d7',
-  customer:'9a900403ac313ba27a1bc81f0932652b8020dac92c234d98fa0b06bf0040ecfd'
-};
+/* ============ AUTH / ROLE ============
+   No password or password hash is stored in this file — every login
+   attempt is checked by Firebase Authentication itself. The person picks
+   their role, types their password, and we sign in as
+   "<role>@vinere.local" with exactly that one password; Firebase accepts
+   or rejects it server-side. Nothing secret ever leaves the person's own
+   browser except as part of that one sign-in request to Firebase. */
 
 var ROLE = null;
-var USER_HASH = null;
+var VALID_ROLES = ['staff', 'seller', 'customer'];
 
-async function sha256(str) {
-  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
-}
+var selectedLoginRole = localStorage.getItem('vinere_role') || 'staff';
+document.querySelectorAll('.login-role-btn').forEach(function(btn) {
+  if (btn.dataset.role === selectedLoginRole) btn.classList.add('active');
+  else btn.classList.remove('active');
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.login-role-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    selectedLoginRole = btn.dataset.role;
+  });
+});
 
 /* ---------- Auto-login on load ---------- */
 window.showApp = function(role) {
@@ -33,17 +40,17 @@ window.showApp = function(role) {
   var isSeller = ROLE === 'seller';
   var isCustomer = ROLE === 'customer';
   var newOrderBtn = document.getElementById('newOrderBtn');
-  var receivePaymentBtn = document.getElementById('receivePaymentBtn');
   var newTradeBtn = document.getElementById('newTradeBtn');
   var newExpenseBtn = document.getElementById('newExpenseBtn');
   var insightsBtn = document.getElementById('insightsBtn');
   var buyersBtn = document.getElementById('buyersBtn');
+  var settingsBtn = document.getElementById('settingsBtn');
   if (newOrderBtn) newOrderBtn.style.display = (isStaff || isSeller) ? 'inline-flex' : 'none';
-  if (receivePaymentBtn) receivePaymentBtn.style.display = (isStaff || isSeller) ? 'inline-flex' : 'none';
   if (newTradeBtn) newTradeBtn.style.display = (isStaff || isSeller) ? 'inline-flex' : 'none';
   if (newExpenseBtn) newExpenseBtn.style.display = (isStaff || isSeller) ? 'inline-flex' : 'none';
   if (insightsBtn) insightsBtn.style.display = (isStaff || isSeller) ? 'inline-flex' : 'none';
   if (buyersBtn) buyersBtn.style.display = (isStaff || isSeller) ? 'inline-flex' : 'none';
+  if (settingsBtn) settingsBtn.style.display = (isStaff || isSeller) ? 'inline-flex' : 'none';
 
   document.body.classList.remove('staff-role', 'seller-role', 'customer-role');
   if (isStaff) document.body.classList.add('staff-role');
@@ -53,7 +60,7 @@ window.showApp = function(role) {
 
 window.checkStoredAuth = function() {
   var savedRole = localStorage.getItem('vinere_role');
-  if (!savedRole || !PASSWORDS[savedRole]) return;
+  if (!savedRole || VALID_ROLES.indexOf(savedRole) === -1) return;
 
   window.firebase.auth().onAuthStateChanged(async function(user) {
     if (user) {
@@ -70,56 +77,56 @@ window.checkStoredAuth = function() {
 window.login = async function() {
   var input = $('passInput').value.trim();
   if (!input) return;
-  var hash = await sha256(input);
+  $('loginError').textContent = '';
 
-  for (var role in PASSWORDS) {
-    if (hash === PASSWORDS[role]) {
-      ROLE = role;
-      USER_HASH = hash;
-      localStorage.setItem('vinere_role', role);
+  var role = selectedLoginRole;
+  var email = role + '@vinere.local';
 
+  try {
+    // The ONE place a password is checked — by Firebase itself, server-side.
+    await window.firebase.auth().signInWithEmailAndPassword(email, input);
+  } catch (err) {
+    if (err.code === 'auth/user-not-found') {
+      // No Firebase account exists yet for this role — this only happens
+      // once per role, the very first time anyone logs in as them.
+      // Whatever password is typed here becomes that role's real,
+      // Firebase-managed password going forward.
       try {
-        var email = role + '@vinere.local';
-        await window.firebase.auth().signInWithEmailAndPassword(email, input);
-      } catch (err) {
-        if (err.code === 'auth/user-not-found') {
-          try {
-            await window.firebase.auth().createUserWithEmailAndPassword(email, input);
-          } catch (createErr) {
-            console.error('Firebase create failed', createErr);
-            $('loginError').textContent = 'Auth error — check console';
-            showToast('Firebase auth failed: ' + createErr.message, 'error');
-            return;
-          }
-        } else if (err.code === 'auth/too-many-requests') {
-          $('loginError').textContent = 'Too many attempts — wait 1 minute and try again';
-          showToast('Too many login attempts. Please wait.', 'error', 4000);
-          return;
-        } else {
-          console.error('Firebase auth failed', err);
-          $('loginError').textContent = 'Auth error — check console';
-          showToast('Firebase auth failed: ' + err.message, 'error');
-          return;
-        }
+        await window.firebase.auth().createUserWithEmailAndPassword(email, input);
+      } catch (createErr) {
+        console.error('Firebase create failed', createErr);
+        $('loginError').textContent = 'Auth error — check console';
+        showToast('Firebase auth failed: ' + createErr.message, 'error');
+        return;
       }
-
-      showApp(role);
-      await initApp();
-      switchView('orders');  // Initialize view - show only Orders buttons
-      showToast('Welcome, ' + role, 'success', 2000);
+    } else if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-login-credentials') {
+      $('loginError').textContent = 'Incorrect password';
+      showToast('Incorrect password', 'error');
+      return;
+    } else if (err.code === 'auth/too-many-requests') {
+      $('loginError').textContent = 'Too many attempts — wait 1 minute and try again';
+      showToast('Too many login attempts. Please wait.', 'error', 4000);
+      return;
+    } else {
+      console.error('Firebase auth failed', err);
+      $('loginError').textContent = 'Auth error — check console';
+      showToast('Firebase auth failed: ' + err.message, 'error');
       return;
     }
   }
 
-  $('loginError').textContent = 'Invalid access code';
-  showToast('Invalid access code', 'error');
+  ROLE = role;
+  localStorage.setItem('vinere_role', role);
+  showApp(role);
+  await initApp();
+  switchView('orders');  // Initialize view - show only Orders buttons
+  showToast('Welcome, ' + role, 'success', 2000);
 };
 
 /* ---------- Logout ---------- */
 window.logout = function() {
   localStorage.removeItem('vinere_role');
   ROLE = null;
-  USER_HASH = null;
   if (window.firebase && window.firebase.auth) {
     window.firebase.auth().signOut().catch(function() {});
   }
@@ -194,6 +201,29 @@ var currentSearchQuery = '';
 var GOLD_RATE = 16000;
 window.GOLD_RATE = GOLD_RATE;
 window.batchUpdateGoldRate = batchUpdateGoldRate;
+
+// ============ APP CONFIG (Settings) ============
+// Business defaults that used to be hard-coded — the ₹→$ conversion rate
+// (was a bare divide-by-94 scattered across 4 files), and the default
+// multiplier and labor charge a new order starts with. Reading through
+// this shared object means every calculation stays in sync with whatever
+// is set in Settings, instead of some places picking up a change and
+// others not.
+var APP_CONFIG = {
+  usdRate: parseFloat(localStorage.getItem('vinere_usd_rate')) || 94,
+  defaultMultiplier: parseFloat(localStorage.getItem('vinere_default_multiplier')) || 0.595,
+  defaultLabor: parseFloat(localStorage.getItem('vinere_default_labor')) || 900,
+  tableDensity: localStorage.getItem('vinere_table_density') || 'comfortable'
+};
+window.APP_CONFIG = APP_CONFIG;
+
+function saveAppConfig() {
+  localStorage.setItem('vinere_usd_rate', APP_CONFIG.usdRate);
+  localStorage.setItem('vinere_default_multiplier', APP_CONFIG.defaultMultiplier);
+  localStorage.setItem('vinere_default_labor', APP_CONFIG.defaultLabor);
+  localStorage.setItem('vinere_table_density', APP_CONFIG.tableDensity);
+}
+window.saveAppConfig = saveAppConfig;
 window.loadGoldRate = loadGoldRate;
 
 var currentView = 'orders';
@@ -317,7 +347,10 @@ function renderAll() {
   }
 
   // ── RESTORE NORMAL VIEW (after leaving unified mode) ──
-  $('headerStats').style.display = 'flex';
+  // header-stats fully duplicates the KPI cards below (Profit/Loss ==
+  // Gross Profit/Loss, Remaining Stock + Stock Cost == Stock on Hand), so
+  // it stays hidden — the KPI cards have more context (subtext) anyway.
+  $('headerStats').style.display = 'none';
 
   // Re-activate correct tab button
   $('ordersViewBtn').classList.toggle('active', currentView === 'orders');
@@ -366,10 +399,6 @@ function renderAll() {
   }
 
   // Filter bar visibility
-  var goldWrap = $('goldRateInput');
-  if (goldWrap && goldWrap.parentElement) {
-    goldWrap.parentElement.style.display = (currentView === 'orders') ? 'flex' : 'none';
-  }
   var rateNote = $('rateNote');
   if (rateNote) rateNote.style.display = (currentView === 'orders') ? '' : 'none';
 
@@ -379,8 +408,6 @@ function renderAll() {
   ['filterExpenseCategory','filterExpenseSeller'].forEach(function(id) {
     var el = $(id); if (el) el.style.display = (currentView === 'expenses') ? '' : 'none';
   });
-
-  $('receivePaymentBtn').style.display = (ROLE !== 'customer' && currentView !== 'expenses') ? 'inline-flex' : 'none';
 
   var rateNoteCollapsed = $('rateNoteCollapsed');
   if (rateNoteCollapsed) {
@@ -471,10 +498,6 @@ function switchView(view) {
   }
 
   // Filter bar visibility
-  var goldWrap = $('goldRateInput');
-  if (goldWrap && goldWrap.parentElement) {
-    goldWrap.parentElement.style.display = (view === 'orders') ? 'flex' : 'none';
-  }
   var rateNote = $('rateNote');
   if (rateNote) rateNote.style.display = (view === 'orders') ? '' : 'none';
 
@@ -485,8 +508,7 @@ function switchView(view) {
     var el = $(id); if (el) el.style.display = (view === 'expenses') ? '' : 'none';
   });
 
-  $('receivePaymentBtn').style.display = (ROLE !== 'customer' && view !== 'expenses') ? 'inline-flex' : 'none';
-  $('headerStats').style.display = 'flex';
+  $('headerStats').style.display = 'none';
 
   // Mobile FAB wiring
   var fab = $('mobileFab');
@@ -562,10 +584,6 @@ $('newExpenseBtn').addEventListener('click', function() {
   if (window.openExpensePanel) window.openExpensePanel();
 });
 
-$('receivePaymentBtn').addEventListener('click', function() {
-  if (window.openPaymentSearch) window.openPaymentSearch();
-});
-
 /* ============ FILTERS ============ */
 function populateFilters() {
   // Customer dropdown removed — no-op
@@ -606,13 +624,13 @@ async function batchUpdateGoldRate(newRate) {
   for (var i = 0; i < unsold.length; i++) {
     var r = unsold[i];
     var net = parseFloat(r[DK.netWt]) || 0;
-    var mult = parseFloat(r[DK.multiplier]) || 0.595;
+    var mult = parseFloat(r[DK.multiplier]) || window.APP_CONFIG.defaultMultiplier;
     var pgWt = net * mult;
     var goldAmt = pgWt * newRate;
     var labor = parseFloat(r[DK.laborAmt]) || 0;
     var diam = parseFloat(r[DK.diamAmount]) || 0;
     var subTotal = goldAmt + labor + diam;
-    var usd = subTotal / 94;
+    var usd = subTotal / window.APP_CONFIG.usdRate;
     var data = {};
     for (var k in r) data[k] = r[k];
     data[DK.pgWt] = pgWt.toFixed(3);
@@ -880,7 +898,7 @@ function renderUnifiedView() {
   if (memoNo) parts.push('Memo <strong>' + escapeHtml(memoNo) + '</strong>');
   if (soldTo) parts.push('Buyer <strong>' + escapeHtml(soldTo) + '</strong>');
   banner.innerHTML = 'Combined results for ' + parts.join(' + ') +
-    '<span style="margin-left:12px;font-size:12px;opacity:0.8;">Orders are blue \u00b7 Trades are green</span>' +
+    '<span style="margin-left:12px;font-size:calc(12px * var(--font-scale) / 100);opacity:0.8;">Orders are blue \u00b7 Trades are green</span>' +
     '<button class="btn text small" style="margin-left:auto;" onclick="$(\'filterMemoNo\').value=\'\';$(\'filterSoldTo\').value=\'\';window.currentPage=1;renderAll();">Show tab view</button>';
   banner.style.display = 'flex';
 
