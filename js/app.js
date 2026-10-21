@@ -5,24 +5,50 @@
 /* ============ AUTH / ROLE ============
    No password or password hash is stored in this file — every login
    attempt is checked by Firebase Authentication itself. The person picks
-   their role, types their password, and we sign in as
-   "<role>@vinere.local" with exactly that one password; Firebase accepts
-   or rejects it server-side. Nothing secret ever leaves the person's own
-   browser except as part of that one sign-in request to Firebase. */
+   their name on the login screen, types their own password, and we sign
+   in as that person's Firebase account (the list lives in
+   company-config.js). Firebase accepts or rejects it server-side. Nothing
+   secret ever leaves the person's own browser except as part of that one
+   sign-in request to Firebase. */
 
 var ROLE = null;
-var VALID_ROLES = ['staff', 'seller', 'customer'];
+var CURRENT_ACCOUNT = null;
 
-var selectedLoginRole = localStorage.getItem('vinere_role') || 'staff';
-document.querySelectorAll('.login-role-btn').forEach(function(btn) {
-  if (btn.dataset.role === selectedLoginRole) btn.classList.add('active');
-  else btn.classList.remove('active');
-  btn.addEventListener('click', function() {
-    document.querySelectorAll('.login-role-btn').forEach(function(b) { b.classList.remove('active'); });
-    btn.classList.add('active');
-    selectedLoginRole = btn.dataset.role;
+function getAccounts() { return (window.COMPANY && COMPANY.accounts) || []; }
+function accountById(id) {
+  return getAccounts().find(function(a) { return a.id === id; }) || null;
+}
+function accountByEmail(email) {
+  var e = String(email || '').toLowerCase();
+  return getAccounts().find(function(a) { return a.email.toLowerCase() === e; }) || null;
+}
+
+var selectedLoginAccount = (function() {
+  var saved = localStorage.getItem('vinere_role');
+  if (accountById(saved)) return saved;
+  return getAccounts().length ? getAccounts()[0].id : null;
+})();
+
+// Build the login buttons from the account list, so adding a person is a
+// one-line change in company-config.js — no HTML edit needed.
+(function renderLoginAccounts() {
+  var box = document.getElementById('loginRoleSelect');
+  if (!box) return;
+  box.innerHTML = '';
+  getAccounts().forEach(function(acct) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'login-role-btn' + (acct.id === selectedLoginAccount ? ' active' : '');
+    btn.dataset.role = acct.id;
+    btn.textContent = acct.label;
+    btn.addEventListener('click', function() {
+      box.querySelectorAll('.login-role-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      selectedLoginAccount = acct.id;
+    });
+    box.appendChild(btn);
   });
-});
+})();
 
 /* ---------- Auto-login on load ---------- */
 window.showApp = function(role) {
@@ -59,17 +85,24 @@ window.showApp = function(role) {
 };
 
 window.checkStoredAuth = function() {
-  var savedRole = localStorage.getItem('vinere_role');
-  if (!savedRole || VALID_ROLES.indexOf(savedRole) === -1) return;
+  if (!accountById(localStorage.getItem('vinere_role'))) return;
 
   window.firebase.auth().onAuthStateChanged(async function(user) {
-    if (user) {
-      ROLE = savedRole;
-      showApp(savedRole);
-      if (typeof initApp === 'function') {
-        await initApp();
-        switchView('orders');  // Initialize view - show only Orders buttons
-      }
+    if (!user) return;
+    // The signed-in Firebase account decides the role — not whatever was
+    // saved in localStorage — so a stale or hand-edited saved value can
+    // never show someone the wrong screens.
+    var acct = accountByEmail(user.email);
+    if (!acct) {
+      window.firebase.auth().signOut().catch(function() {});
+      return;
+    }
+    CURRENT_ACCOUNT = acct;
+    ROLE = acct.role;
+    showApp(acct.role);
+    if (typeof initApp === 'function') {
+      await initApp();
+      switchView('orders');  // Initialize view - show only Orders buttons
     }
   });
 };
@@ -79,48 +112,45 @@ window.login = async function() {
   if (!input) return;
   $('loginError').textContent = '';
 
-  var role = selectedLoginRole;
-  var email = role + '@vinere.local';
+  var acct = accountById(selectedLoginAccount);
+  if (!acct) {
+    $('loginError').textContent = 'No account selected';
+    return;
+  }
 
   try {
     // The ONE place a password is checked — by Firebase itself, server-side.
-    await window.firebase.auth().signInWithEmailAndPassword(email, input);
+    await window.firebase.auth().signInWithEmailAndPassword(acct.email, input);
   } catch (err) {
-    if (err.code === 'auth/user-not-found') {
-      // No Firebase account exists yet for this role — this only happens
-      // once per role, the very first time anyone logs in as them.
-      // Whatever password is typed here becomes that role's real,
-      // Firebase-managed password going forward.
-      try {
-        await window.firebase.auth().createUserWithEmailAndPassword(email, input);
-      } catch (createErr) {
-        console.error('Firebase create failed', createErr);
-        $('loginError').textContent = 'Auth error — check console';
-        showToast('Firebase auth failed: ' + createErr.message, 'error');
-        return;
-      }
-    } else if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-login-credentials') {
+    if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-login-credentials') {
       $('loginError').textContent = 'Incorrect password';
       showToast('Incorrect password', 'error');
-      return;
+    } else if (err.code === 'auth/user-not-found') {
+      // Accounts are created by the admin in the Firebase Console
+      // (Authentication → Add user). Logging in never creates one.
+      $('loginError').textContent = 'No account set up for ' + acct.label + ' yet';
+      showToast('No account set up for ' + acct.label + ' yet', 'error');
+    } else if (err.code === 'auth/user-disabled') {
+      $('loginError').textContent = 'This account has been disabled';
+      showToast('This account has been disabled', 'error');
     } else if (err.code === 'auth/too-many-requests') {
       $('loginError').textContent = 'Too many attempts — wait 1 minute and try again';
       showToast('Too many login attempts. Please wait.', 'error', 4000);
-      return;
     } else {
       console.error('Firebase auth failed', err);
       $('loginError').textContent = 'Auth error — check console';
       showToast('Firebase auth failed: ' + err.message, 'error');
-      return;
     }
+    return;
   }
 
-  ROLE = role;
-  localStorage.setItem('vinere_role', role);
-  showApp(role);
+  CURRENT_ACCOUNT = acct;
+  ROLE = acct.role;
+  localStorage.setItem('vinere_role', acct.id);
+  showApp(acct.role);
   await initApp();
   switchView('orders');  // Initialize view - show only Orders buttons
-  showToast('Welcome, ' + role, 'success', 2000);
+  showToast('Welcome, ' + acct.label, 'success', 2000);
 };
 
 /* ---------- Logout ---------- */

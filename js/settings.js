@@ -146,7 +146,7 @@ $('resetSettingsBtn').addEventListener('click', function() {
    passwords themselves without touching the Firebase Console. */
 $('changePwBtn').addEventListener('click', async function() {
   var msgEl = $('pwMsg');
-  var current = $('pwCurrent').value;
+  var current = $('pwCurrent').value.trim();
   var next = $('pwNew').value;
   var confirmPw = $('pwConfirm').value;
 
@@ -157,6 +157,7 @@ $('changePwBtn').addEventListener('click', async function() {
 
   if (!current || !next || !confirmPw) return setMsg('Fill in all three fields.');
   if (next.length < 6) return setMsg('New password must be at least 6 characters.');
+  if (next !== next.trim()) return setMsg('Password cannot start or end with a space.');
   if (next === current) return setMsg('New password must be different from the current one.');
   if (next !== confirmPw) return setMsg('New passwords do not match.');
 
