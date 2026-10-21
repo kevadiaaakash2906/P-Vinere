@@ -20,8 +20,7 @@ var COMPANY = {
   accounts: [
     { id: 'staff',    label: 'Piyush',    email: 'staff@vinere.local',    role: 'staff'    },
     { id: 'staff1',    label: 'Arpan',    email: 'staff1@vinere.local',    role: 'staff'    },
-    { id: 'seller',   label: 'Het',   email: 'seller@vinere.local',   role: 'seller'   },
-    { id: 'customer', label: 'Customer', email: 'customer@vinere.local', role: 'customer' }
+    { id: 'seller',   label: 'Het',   email: 'seller@vinere.local',   role: 'seller'   }
 
     // Example — a second staff member with their own password:
     // , { id: 'staff2', label: 'Staff 2', email: 'staff2@vinere.local', role: 'staff' }
