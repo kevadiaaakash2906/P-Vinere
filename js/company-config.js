@@ -19,6 +19,7 @@
 var COMPANY = {
   accounts: [
     { id: 'staff',    label: 'Staff',    email: 'staff@vinere.local',    role: 'staff'    },
+    { id: 'staff1',    label: '1',    email: 'staff1@vinere.local',    role: 'staff'    },
     { id: 'seller',   label: 'Seller',   email: 'seller@vinere.local',   role: 'seller'   },
     { id: 'customer', label: 'Customer', email: 'customer@vinere.local', role: 'customer' }
 
